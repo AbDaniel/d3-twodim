@@ -9,7 +9,7 @@ import legend from "./legend";
  * Create a d3-twodim factory, where all instantiated objects are linked with the same data.
  */
 var twoDimFactory = function() {
-    this.dispatch = d3.dispatch("highlight", 'groupUpdate');
+    this.dispatch = d3.dispatch("highlight", "groupUpdate");
     this.createdComponents = [];
 };
 
@@ -111,7 +111,7 @@ twoDimFactory.prototype.setGroupField = function(groupField, numBins) {
       prevVal = binSpan[1];
     }
 
-    var binnedScale = d3.scale.quantize()
+    var binnedScale =  d3.scaleQuantize()
       .domain(fieldExtent)
       .range(range);
 
@@ -127,7 +127,7 @@ twoDimFactory.prototype.setGroupField = function(groupField, numBins) {
  * @returns {twoDimFactory} The current factory object 
  */
 twoDimFactory.prototype.highlight = function(highlightFunction) {
-    this.dispatch.highlight(highlightFunction);
+    this.dispatch.call('highlight', this, highlightFunction);
     return this;
 }
 

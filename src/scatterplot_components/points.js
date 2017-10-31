@@ -8,6 +8,7 @@ points.prototype = Object.create(scatterplot_component.prototype);
 points.prototype.draw = function(container, skipTransition) {
   var that = this;
   skipTransition = !!skipTransition;
+  var t = d3.transition().duration(this.duration);
 
   // create a group for the circles if it doesn't yet exist  
   container.selectAll('g.circles')
@@ -19,25 +20,24 @@ points.prototype.draw = function(container, skipTransition) {
     
   points.enter().append('circle')
     .attr("class", "point")
-    .attr('id', function(d) { return "circle-" + d.orig_index; });
-    
-  // if transition was requested, add it into the selection
-  var updatePoints = points;
-  if (!skipTransition) updatePoints = points.transition().duration(this.duration);
-  updatePoints
-    .attr('cx', function(e) { return that.scale.x(that.xValue(e)); })
-    .attr('cy', function(e) { return that.scale.y(that.yValue(e)); })
-    .attr('r', this.ptSize)
-    .style('fill', that.grpValue ? 
-      function(d) { return that.colorScale(that.grpValue(d)); } :
-      that.colorScale('undefined')
-    )
-    .style('opacity', 1);
-    
-  points.exit().transition()
-    .duration(this.duration)
-    .style('opacity', 1e-6)
-    .remove();
+    .attr('id', function(d) { return "circle-" + d.orig_index; })
+      .attr('cx', function(e) { return that.scale.x(that.xValue(e)); })
+      .attr('cy', function(e) { return that.scale.y(that.yValue(e)); })
+      .attr('r', this.ptSize)
+      .style('fill', that.grpValue ?
+          function(d) { return that.colorScale(that.grpValue(d)); } :
+          that.colorScale('undefined')
+      )
+      .style('opacity', 1);
+
+    // if transition was requested, add it into the selection
+  // var updatePoints = points;
+  // if (!skipTransition) updatePoints = points.transition().duration(this.duration);
+  // updatePoints
+    points.exit()
+        .transition(t)
+        .style("fill-opacity", 1e-6)
+        .remove();
 };
 
 points.prototype.highlight = function(container, selector) {

@@ -29,7 +29,7 @@
     "prepublish": "npm run test && uglifyjs build/d3-twodim.js -c -m -o build/d3-twodim.min.js && rm -f build/d3-twodim.zip && zip -j build/d3-twodim.zip -- LICENSE README.md build/d3-twodim.js build/d3-twodim.min.js"
   },
   "dependencies": {
-    "d3": "~3.5.17",
+    "d3": "4.11.0",
     "d3-hexbin": "~0.2"
   },
   "devDependencies": {

@@ -4,6 +4,23 @@ import splatterplot from "./scatterplot_components/splatterplot";
 import points from "./scatterplot_components/points";
 import bins from "./scatterplot_components/bins";
 
+// Copies a variable number of methods from source to target.
+d3.rebind = function(target, source) {
+    var i = 1, n = arguments.length, method;
+    while (++i < n) target[method = arguments[i]] = d3_rebind(target, source, source[method]);
+    return target;
+};
+
+// Method is assumed to be a standard D3 getter-setter:
+// If passed with no arguments, gets the value.
+// If passed with arguments, sets the value and returns the target.
+function d3_rebind(target, source, method) {
+    return function() {
+        var value = method.apply(source, arguments);
+        return value === source ? target : value;
+    };
+}
+
 export default function(dispatch) {
   // 'global' declarations go here
   var rendering = 'svg';
@@ -63,7 +80,7 @@ export default function(dispatch) {
     // try to be smart about not clobbering color scales.  
     // if no color scale exists, create one and set the domain
     if (!colorScale) {
-      colorScale = d3.scale.category10();
+      colorScale = d3.scaleOrdinal(d3.schemeCategory10);
       colorScale.domain(foundGroups);
     } else {
       var existingDomain = colorScale.domain();
@@ -79,11 +96,11 @@ export default function(dispatch) {
     }
     
     // regardless of what happens, make sure all color-based components are updated
-    dispatch.groupUpdate(foundGroups, colorScale);
-    
+      dispatch.call("groupUpdate", this, foundGroups, colorScale);
+
     if (scale.x === undefined) {
-      scale.x = d3.scale.linear();
-      scale.y = d3.scale.linear();
+        scale.x = d3.scaleLinear();
+        scale.y = d3.scaleLinear();
     } 
     
     // set the axes' domain, iff existing domain is empty OR 
@@ -126,17 +143,19 @@ export default function(dispatch) {
       //     to have a cell created 
       var voronois = g.selectAll('g.voronoi')
         .selectAll('path')
-        .data(voronoi(points).filter(function() { return true; }), function(d) { 
-          return d.point ? d.point.orig_index : d.orig_index; 
+        .data(voronoi(points).polygons().filter(function() { return true; }), function(d) {
+          return d.data ? d.data.orig_index : d.orig_index;
         });
       voronois.enter().append('path')
         .attr('d', function(d) { return "M" + d.join('L') + "Z"; })
-        .datum(function(d) { return d.point; })
+        .datum(function(d) { return d.data; })
         .attr('class', function(d) { return "voronoi-" + d.orig_index; })
         // .style('stroke', '#2074A0')
         .style('fill', 'none')
         .style('pointer-events', 'all')
-        .on('mouseover', function(d) { 
+        .on('mouseover', function(d) {
+          console.log(d);
+
           var pt = g.selectAll("#circle-" + d.orig_index);
           var ptPos = pt.node().getBoundingClientRect();
           // d3.select(this).style('fill', '#2074A0');
@@ -240,7 +259,7 @@ export default function(dispatch) {
         .append('g')
           .attr('class', 'xaxis axis')
           .attr('transform', 'translate(0, ' + height + ')')
-          .call(d3.svg.axis().orient("bottom").scale(scale.x));
+          .call(d3.axisBottom(scale.x));
         
       var xLabel = xaxis.selectAll('text.alabel')
         .data([name[0]]);
@@ -260,8 +279,8 @@ export default function(dispatch) {
       yaxis.enter()
         .append('g')
           .attr('class', 'yaxis axis')
-          .call(d3.svg.axis().orient("left").scale(scale.y));
-          
+          .call(d3.axisLeft(scale.y));
+
       var yLabel = yaxis.selectAll('text.alabel')
         .data([name[1]]);
       yLabel.enter().append('text')
@@ -292,7 +311,11 @@ export default function(dispatch) {
           .append('clipPath')
             .attr('id', function(d) { return d; })
             .append('rect')
-              .attr({x: 0, y: 0, width: width, height: height});
+              .attr('x', 0)
+              .attr('y', 0)
+          .attr('width', width)
+          .attr('height', height);
+
      chartArea.attr('clip-path', 'url(#' + selectionName + ')');
 
       // put the brush above the points to allow hover events; see 
@@ -325,7 +348,10 @@ export default function(dispatch) {
           chartArea.selectAll('rect.backgroundDrag')
             .data([1]).enter().append('rect')
               .attr('class', 'backgroundDrag')
-              .attr({x: 0, y: 0, height: height, width: width})
+              .attr('x', 0)
+              .attr('y', 0)
+              .attr('height', height)
+              .attr('width', width)
               .style('visibility', 'hidden')
               .style('pointer-events', 'all');
         }
@@ -407,17 +433,17 @@ export default function(dispatch) {
       // update axis if bounds changed
       g.selectAll('.xaxis')
         .transition().duration(duration)
-        .call(d3.svg.axis().orient("bottom").scale(scale.x));
+        .call(d3.axisBottom(scale.x));
         
       g.selectAll('.yaxis')
         .transition().duration(duration)
-        .call(d3.svg.axis().orient("left").scale(scale.y));
+        .call(d3.axisLeft(scale.y));
 
       if (doVoronoi) {
-        voronoi = d3.geom.voronoi()
+        voronoi = d3.voronoi()
           .x(function(d) { return scale.x(xValue(d)); })
           .y(function(d) { return scale.y(yValue(d)); })
-          .clipExtent([[0, 0], [width, height]]);
+          .extent([[0, 0], [width, height]]);
 
         if (!doLimitMouse)
           chartArea.call(generateVoronoi, scatterData);
@@ -425,7 +451,7 @@ export default function(dispatch) {
 
       // hack to clear selected points post-hoc after removing brush element 
       // (to get around inifinite-loop problem if called from within the exit() selection)
-      if (brushDirty) dispatch.highlight(false);
+      if (brushDirty) dispatch.call('highlight', this, false);
         
       function brushmove(p) {
         var e = brush.extent();
@@ -433,14 +459,14 @@ export default function(dispatch) {
         // TODO: I forgot why these lines are necessary... (does it have to do with brushes?)
         g.selectAll('circle').classed('extent', false);
         g.selectAll('.voronoi path').classed('extent', false);
-        
-        dispatch.highlight(function(d) { 
-          return !(e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1]);
-        });
+
+          var container = function(d) {
+              return !(e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1]);
+          };
+          dispatch.call('highlight', this, container);
       }
       
       function brushend() {
-        if (brush.empty()) {
           // destroy any remaining voronoi shapes
           g.selectAll('.voronoi').selectAll('path').remove();
           
@@ -455,8 +481,7 @@ export default function(dispatch) {
           
           // removes all highlights for all linked components 
           g.selectAll('.' + hiddenClass).classed(hiddenClass, false);
-          dispatch.highlight(false);
-        }
+          dispatch.call('highlight', this, false);
       }
 
       function zoom() {
@@ -464,9 +489,9 @@ export default function(dispatch) {
         extScatterObj.update(chartArea, true);
 
         g.selectAll('.xaxis')
-          .call(d3.svg.axis().orient("bottom").scale(scale.x));
+          .call(d3.axisBottom(scale.x));
         g.selectAll('.yaxis')
-          .call(d3.svg.axis().orient("left").scale(scale.y));
+          .call(d3.axisLeft(scale.y));
       };
     });
   };
@@ -581,7 +606,7 @@ export default function(dispatch) {
       .append('g')
         .attr('class', 'xaxis axis')
         .attr('transform', 'translate(0, ' + height + ')')
-        .call(d3.svg.axis().orient('bottom').scale(scale.x));
+        .call(d3.axisBottom(scale.x));
 
     var xLabel = xaxis.selectAll('text.alabel')
       .data([name[0]]);
@@ -620,7 +645,7 @@ export default function(dispatch) {
     yLabel.exit().remove();
 
     if (!skipTransition) yaxis.transition().duration(duration);
-    yaxis.call(d3.svg.axis().orient('left').scale(scale.y));
+    yaxis.call(d3.axisLeft(scale.y));
 
     // handle zooming
     zoomBehavior = d3.behavior.zoom()
@@ -801,7 +826,7 @@ export default function(dispatch) {
             if (doBrush) {
               // d3 v4 way:
               // selection.select("g.chartArea").call(brush.move, null);
-              selection.select("g.chartArea").call(brush.clear());
+              selection.select("g.chartArea").call(brush.move, null);
             }
             
             if (doVoronoi) {

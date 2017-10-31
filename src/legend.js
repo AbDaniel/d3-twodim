@@ -32,13 +32,13 @@ export default function(dispatch) {
     localDispatch.click(d, i);
     
     if (allActive) {
-      dispatch.highlight(false);
+      dispatch.call('highlight', this, false);
     } else {
       var selectedGroups = groupData
         .filter(function(d) { return d.active; })
         .map(function(d) { return d.name; });
         
-      dispatch.highlight(function(d) { return selectedGroups.indexOf(groupCol(d)) != -1; });
+      dispatch.call('highlight', this, (function(d) { return selectedGroups.indexOf(groupCol(d)) != -1; }));
     }
   }
 
@@ -54,7 +54,7 @@ export default function(dispatch) {
           .attr('class', 'item')
           .attr('transform', function(d, i) { return 'translate(0, ' + (20 * i) + ')' });
           
-      colorScale = colorScale || d3.scale.category10();
+      colorScale = colorScale || d3.scaleOrdinal(d3.schemeCategory10);
           
       newItems.append('rect')
         .attr('width', 10)
