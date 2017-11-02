@@ -29,7 +29,7 @@ export default function(dispatch) {
       }
     }
     
-    localDispatch.click(d, i);
+    localDispatch.call('click', this, d, i);
     
     if (allActive) {
       dispatch.call('highlight', this, false);

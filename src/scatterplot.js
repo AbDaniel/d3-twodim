@@ -146,6 +146,7 @@ export default function(dispatch) {
         .data(voronoi(points).polygons().filter(function() { return true; }), function(d) {
           return d.data ? d.data.orig_index : d.orig_index;
         });
+
       voronois.enter().append('path')
         .attr('d', function(d) { return "M" + d.join('L') + "Z"; })
         .datum(function(d) { return d.data; })
@@ -209,22 +210,18 @@ export default function(dispatch) {
       
       // construct a brush object for this selection 
       // (TODO / BUG: one brush for multiple graphs?)
-      brush = d3.svg.brush()
-        .x(scale.x)
-        .y(scale.y)
+      brush = d3.brush()
         .on("brush", brushmove)
-        .on("brushend", brushend);
+        .on("brush end", brushend);
 
-      zoomBehavior = d3.behavior.zoom()
-        .x(scale.x)
-        .y(scale.y)
-        .scaleExtent([0, 500])
+      zoomBehavior = d3.zoom()
+        .extent([0, 500])
         .on("zoom", zoom)
-        .on("zoomstart", function(d) {
-          if (localDispatch.hasOwnProperty('mouseout')) 
-            localDispatch.mouseout(d);
+        .on("zoom start", function(d) {
+          if (localDispatch.hasOwnProperty('mouseout'))
+            localDispatch.call('mouseout', this ,d);
         })
-        .on("zoomend", function() {
+        .on("zoom end", function() {
           // update bounds object
           bounds = [scale.x.domain(), scale.y.domain()];
            
@@ -365,7 +362,7 @@ export default function(dispatch) {
       voronoiGroup.exit()
         .each(function(d) {
           if (localDispatch.hasOwnProperty('mouseout'))
-            localDispatch.mouseout(d);
+              localDispatch.call('mouseout', this, d);
         })
         .remove();
 
@@ -477,7 +474,7 @@ export default function(dispatch) {
           // call any linked mouseout events to finalize brush removals
           // (e.g. hides tooltips when brush disappears and no highlighted points remain)
           if (localDispatch.hasOwnProperty('mouseout'))
-            localDispatch.mouseout();
+              localDispatch.call('mouseout', this, d);
           
           // removes all highlights for all linked components 
           g.selectAll('.' + hiddenClass).classed(hiddenClass, false);
@@ -660,7 +657,7 @@ export default function(dispatch) {
         bounds = [scale.x.domain(), scale.y.domain()];
       }).on("zoomstart", function(d) {
         if (localDispatch.hasOwnProperty('mouseout'))
-          localDispatch.mouseout(d);
+            localDispatch.call('mouseout', this,  d);
       });
 
     if (doZoom) {
